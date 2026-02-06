@@ -300,25 +300,7 @@ const App: React.FC = () => {
     try {
       let rawFiles: FileContent[] = [];
 
-      // Check if it's a direct URL (http:// or https://)
-      if (entryUrl.startsWith('http://') || entryUrl.startsWith('https://')) {
-        // Single channel URL - create a single channel entry
-        setLoadingStatus('正在加载频道...');
-        const channelName = entryUrl.split('/').pop() || '单个频道';
-        const id = generateId(entryUrl);
-        const singleChannel: Channel = {
-          id,
-          name: channelName,
-          url: entryUrl,
-          group: '单个频道',
-        };
-        setChannels([singleChannel]);
-        setIsLoading(false);
-        setLoadingStatus('');
-        return;
-      }
-
-      // Check if it's a file reference format: @path:lineNumber
+      // Priority 1: Check if it's a file reference format: @path:lineNumber
       const fileRefMatch = entryUrl.match(/^@(.+):(\d+)$/);
       if (fileRefMatch) {
         const [, filePath, lineNumStr] = fileRefMatch;
@@ -370,9 +352,19 @@ const App: React.FC = () => {
         return;
       }
 
+      // Priority 2: Check if it's a JSON URL (.json extension)
       if (entryUrl.toLowerCase().endsWith('.json')) {
         setLoadingStatus('正在获取文件...');
-        const indexRes = await fetch(entryUrl);
+        console.log('[Playlist] Attempting to fetch JSON from:', entryUrl);
+        
+        const indexRes = await fetch(entryUrl, {
+          headers: {
+            'Accept': 'application/json',
+          },
+          mode: 'cors',
+        });
+
+        console.log('[Playlist] Fetch response status:', indexRes.status, 'ok:', indexRes.ok);
 
         if (!indexRes.ok) {
           throw new Error(`无法读取文件 (Status: ${indexRes.status})`);
@@ -380,6 +372,8 @@ const App: React.FC = () => {
 
         // Check for HTML response (SPA fallback 404)
         const contentType = indexRes.headers.get('content-type');
+        console.log('[Playlist] Response content-type:', contentType);
+        
         if (contentType && contentType.includes('text/html')) {
           throw new Error('资源地址返回了 HTML 页面而非 JSON，请检查 M3U8 文件是否已正确部署。');
         }
@@ -406,7 +400,7 @@ const App: React.FC = () => {
           if (isFileList) {
             // This is a file list index
             const basePathString = entryUrl.substring(0, entryUrl.lastIndexOf('/') + 1);
-            setLoadingStatus(`发现 ${jsonData.length} 个文件，开始下载...`);
+            setLoadingStatus(`发现 ${jsonData.length} 个文件`);
 
             const promises = (jsonData as string[]).map(async (filename: string) => {
               const fileUrl = basePathString + filename;
@@ -450,13 +444,32 @@ const App: React.FC = () => {
         } catch (e) {
           throw new Error(`JSON 解析失败: ${(e as Error).message}`);
         }
-      } else {
-        const guessedName = entryUrl.split('/').pop() || '默认列表';
-        setLoadingStatus('正在下载播放列表...');
-        const response = await fetch(entryUrl);
-        if (!response.ok) throw new Error('下载失败');
-        rawFiles = [{ name: guessedName, content: await response.text() }];
       }
+      // Priority 3: Check if it's a direct URL (http:// or https://)
+      else if (entryUrl.startsWith('http://') || entryUrl.startsWith('https://')) {
+        // Single channel URL - create a single channel entry
+        setLoadingStatus('正在加载频道...');
+        const channelName = entryUrl.split('/').pop() || '单个频道';
+        const id = generateId(entryUrl);
+        const singleChannel: Channel = {
+          id,
+          name: channelName,
+          url: entryUrl,
+          group: '单个频道',
+        };
+        setChannels([singleChannel]);
+        setIsLoading(false);
+        setLoadingStatus('');
+        return;
+      }
+      // Priority 4: Try to fetch as regular m3u/txt file
+      else {
+          const guessedName = entryUrl.split('/').pop() || '默认列表';
+          setLoadingStatus('正在下载播放列表...');
+          const response = await fetch(entryUrl);
+          if (!response.ok) throw new Error('下载失败');
+          rawFiles = [{ name: guessedName, content: await response.text() }];
+        }
 
       setLoadingStatus('正在解析频道...');
 
@@ -474,8 +487,11 @@ const App: React.FC = () => {
       console.log('[Playlist] Total unique channels:', uniqueChannels.length);
       setChannels(uniqueChannels);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('[Playlist] Error loading playlists:', error);
-      alert(`加载失败: ${(error as Error).message}`);
+      console.error('[Playlist] Error message:', errorMessage);
+      console.error('[Playlist] Error stack:', error instanceof Error ? error.stack : 'No stack');
+      alert(`加载失败: ${errorMessage}`);
     } finally {
       setIsLoading(false);
       setLoadingStatus('');
