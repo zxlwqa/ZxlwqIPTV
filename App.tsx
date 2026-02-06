@@ -370,7 +370,7 @@ const App: React.FC = () => {
       }
 
       if (entryUrl.toLowerCase().endsWith('.json')) {
-        setLoadingStatus('正在获取文件列表...');
+        setLoadingStatus('正在获取文件...');
         const indexRes = await fetch(entryUrl);
 
         if (!indexRes.ok) {
@@ -383,43 +383,57 @@ const App: React.FC = () => {
           throw new Error('资源地址返回了 HTML 页面而非 JSON，请检查 M3U8 文件是否已正确部署。');
         }
 
-        const fileList: string[] = await indexRes.json();
-        const basePath = entryUrl.substring(0, entryUrl.lastIndexOf('/') + 1);
+        try {
+          const jsonData = await indexRes.json();
+          
+          // Check if it's a direct channel list (Array or Object with channels/lives property)
+          if (Array.isArray(jsonData) || jsonData.channels || jsonData.lives) {
+            // This is a direct channel list, treat it as M3U content
+            const fileName = entryUrl.split('/').pop() || '频道列表';
+            rawFiles = [{ name: fileName, content: JSON.stringify(jsonData) }];
+          } else if (Array.isArray(jsonData) && jsonData.length > 0 && typeof jsonData[0] === 'string') {
+            // This is a file list index
+            const basePathString = entryUrl.substring(0, entryUrl.lastIndexOf('/') + 1);
+            setLoadingStatus(`发现 ${jsonData.length} 个文件，开始下载...`);
 
-        setLoadingStatus(`发现 ${fileList.length} 个文件，开始下载...`);
-
-        const promises = fileList.map(async filename => {
-          const fileUrl = basePath + filename;
-          try {
-            const res = await fetch(fileUrl);
-            if (res.ok) {
-              // Check if it's a JSON file
-              const contentType = res.headers.get('content-type') || '';
-              if (
-                filename.toLowerCase().endsWith('.json') ||
-                contentType.includes('application/json')
-              ) {
-                // For JSON files, try to parse as channel list directly
-                try {
-                  const jsonContent = await res.json();
-                  // If it's a channel list JSON, return it as content
-                  if (Array.isArray(jsonContent) || jsonContent.channels) {
-                    return { name: filename, content: JSON.stringify(jsonContent) };
+            const promises = jsonData.map(async (filename: string) => {
+              const fileUrl = basePathString + filename;
+              try {
+                const res = await fetch(fileUrl);
+                if (res.ok) {
+                  // Check if it's a JSON file
+                  const contentType = res.headers.get('content-type') || '';
+                  if (
+                    filename.toLowerCase().endsWith('.json') ||
+                    contentType.includes('application/json')
+                  ) {
+                    // For JSON files, try to parse as channel list directly
+                    try {
+                      const jsonContent = await res.json();
+                      // If it's a channel list JSON, return it as content
+                      if (Array.isArray(jsonContent) || jsonContent.channels) {
+                        return { name: filename, content: JSON.stringify(jsonContent) };
+                      }
+                    } catch {
+                      // If JSON parsing fails, treat as text
+                    }
                   }
-                } catch {
-                  // If JSON parsing fails, treat as text
+                  return { name: filename, content: await res.text() };
                 }
+              } catch (e) {
+                console.error(`Failed to load ${filename}`, e);
               }
-              return { name: filename, content: await res.text() };
-            }
-          } catch (e) {
-            console.error(`Failed to load ${filename}`, e);
-          }
-          return null;
-        });
+              return null;
+            });
 
-        const results = await Promise.all(promises);
-        rawFiles = results.filter((f): f is FileContent => f !== null);
+            const results = await Promise.all(promises);
+            rawFiles = results.filter((f): f is FileContent => f !== null);
+          } else {
+            throw new Error('无法识别 JSON 格式，请确保是频道列表或文件索引');
+          }
+        } catch (e) {
+          throw new Error(`JSON 解析失败: ${(e as Error).message}`);
+        }
       } else {
         const guessedName = entryUrl.split('/').pop() || '默认列表';
         setLoadingStatus('正在下载播放列表...');
@@ -709,7 +723,16 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <Settings 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)}
+        playlistUrl={playlistUrl}
+        onPlaylistUrlChange={(newUrl) => {
+          setPlaylistUrl(newUrl);
+          localStorage.setItem('iptv_url', newUrl);
+          fetchPlaylists(newUrl);
+        }}
+      />
     </div>
   );
 };

@@ -61,14 +61,14 @@ const ChannelCard: React.FC<{
   return (
     <div
       onClick={onClick}
-      className={`group relative aspect-video bg-zinc-900 rounded-xl overflow-hidden cursor-pointer border transition-all duration-300 hover:-translate-y-1 ${isSelected ? 'border-primary ring-2 ring-primary/50' : 'border-white/10 hover:border-white/30'}`}
+      className={`group relative aspect-video bg-zinc-900 rounded-xl overflow-hidden cursor-pointer border transition-all duration-300 ${isSelected ? 'border-primary ring-2 ring-primary/50' : 'border-white/10 hover:border-white/30'}`}
     >
       {/* Background Image Layer */}
       {displayLogo && !imgError ? (
         <img
           src={displayLogo}
           alt={channel.name}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          className="absolute inset-0 w-full h-full object-cover"
           onError={() => setImgError(true)}
           loading="lazy"
         />
