@@ -22,8 +22,14 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, playlistUrl = '', 
 
   const handleSaveUrl = () => {
     if (inputUrl.trim()) {
+      console.log('[Settings] Save clicked, URL:', inputUrl.trim());
       onPlaylistUrlChange?.(inputUrl.trim());
-      alert('频道列表URL已更新');
+      // 延迟关闭，确保状态已更新
+      setTimeout(() => {
+        onClose();
+      }, 300);
+    } else {
+      alert('请输入有效的URL');
     }
   };
 
@@ -31,6 +37,9 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, playlistUrl = '', 
     const defaultUrl = './M3U8/index.json';
     setInputUrl(defaultUrl);
     onPlaylistUrlChange?.(defaultUrl);
+    setTimeout(() => {
+      onClose();
+    }, 300);
   };
 
   return (

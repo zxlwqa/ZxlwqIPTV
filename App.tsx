@@ -292,6 +292,7 @@ const App: React.FC = () => {
   const fetchPlaylists = useCallback(async (entryUrl: string) => {
     if (!entryUrl) return;
 
+    console.log('[Playlist] Starting to fetch from:', entryUrl);
     setIsLoading(true);
     setLoadingStatus('正在连接资源...');
     setChannels([]);
@@ -385,18 +386,29 @@ const App: React.FC = () => {
 
         try {
           const jsonData = await indexRes.json();
+          console.log('[Playlist] Fetched JSON data:', jsonData);
           
-          // Check if it's a direct channel list (Array or Object with channels/lives property)
-          if (Array.isArray(jsonData) || jsonData.channels || jsonData.lives) {
-            // This is a direct channel list, treat it as M3U content
-            const fileName = entryUrl.split('/').pop() || '频道列表';
-            rawFiles = [{ name: fileName, content: JSON.stringify(jsonData) }];
-          } else if (Array.isArray(jsonData) && jsonData.length > 0 && typeof jsonData[0] === 'string') {
+          // Determine if it's a file list or channel list
+          let isFileList = false;
+          
+          if (Array.isArray(jsonData)) {
+            // Check if array contains strings (file list) or objects (channel list)
+            if (jsonData.length > 0 && typeof jsonData[0] === 'string') {
+              isFileList = true;
+              console.log('[Playlist] Detected as file list with', jsonData.length, 'files');
+            } else {
+              console.log('[Playlist] Detected as channel list with', jsonData.length, 'channels');
+            }
+          } else {
+            console.log('[Playlist] Detected as object with channels/lives property');
+          }
+          
+          if (isFileList) {
             // This is a file list index
             const basePathString = entryUrl.substring(0, entryUrl.lastIndexOf('/') + 1);
             setLoadingStatus(`发现 ${jsonData.length} 个文件，开始下载...`);
 
-            const promises = jsonData.map(async (filename: string) => {
+            const promises = (jsonData as string[]).map(async (filename: string) => {
               const fileUrl = basePathString + filename;
               try {
                 const res = await fetch(fileUrl);
@@ -428,6 +440,10 @@ const App: React.FC = () => {
 
             const results = await Promise.all(promises);
             rawFiles = results.filter((f): f is FileContent => f !== null);
+          } else if (Array.isArray(jsonData) || jsonData.channels || jsonData.lives) {
+            // This is a direct channel list (array or object with channels/lives property)
+            const fileName = entryUrl.split('/').pop() || '频道列表';
+            rawFiles = [{ name: fileName, content: JSON.stringify(jsonData) }];
           } else {
             throw new Error('无法识别 JSON 格式，请确保是频道列表或文件索引');
           }
@@ -449,18 +465,21 @@ const App: React.FC = () => {
         if (file.content) {
           const defaultGroupName = formatGroupName(file.name);
           const parsed = parseM3U(file.content, defaultGroupName);
+          console.log(`[Playlist] Parsed ${file.name}: ${parsed.length} channels`);
           allChannels = [...allChannels, ...parsed];
         }
       });
 
       const uniqueChannels = Array.from(new Map(allChannels.map(item => [item.id, item])).values());
+      console.log('[Playlist] Total unique channels:', uniqueChannels.length);
       setChannels(uniqueChannels);
     } catch (error) {
-      console.error('Error loading playlists:', error);
+      console.error('[Playlist] Error loading playlists:', error);
       alert(`加载失败: ${(error as Error).message}`);
     } finally {
       setIsLoading(false);
       setLoadingStatus('');
+      console.log('[Playlist] Finished fetching');
     }
   }, []);
 
@@ -728,6 +747,7 @@ const App: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         playlistUrl={playlistUrl}
         onPlaylistUrlChange={(newUrl) => {
+          console.log('[Settings] Changing playlist URL to:', newUrl);
           setPlaylistUrl(newUrl);
           localStorage.setItem('iptv_url', newUrl);
           fetchPlaylists(newUrl);
