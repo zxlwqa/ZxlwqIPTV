@@ -68,7 +68,7 @@ const ChannelCard: React.FC<{
         <img
           src={displayLogo}
           alt={channel.name}
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          className="absolute inset-0 w-full h-full object-contain bg-zinc-800"
           onError={() => setImgError(true)}
           loading="lazy"
         />
