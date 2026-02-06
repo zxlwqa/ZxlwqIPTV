@@ -292,7 +292,6 @@ const App: React.FC = () => {
   const fetchPlaylists = useCallback(async (entryUrl: string) => {
     if (!entryUrl) return;
 
-    console.log('[Playlist] Starting to fetch from:', entryUrl);
     setIsLoading(true);
     setLoadingStatus('正在连接资源...');
     setChannels([]);
@@ -355,7 +354,6 @@ const App: React.FC = () => {
       // Priority 2: Check if it's a JSON URL (.json extension)
       if (entryUrl.toLowerCase().endsWith('.json')) {
         setLoadingStatus('正在获取文件...');
-        console.log('[Playlist] Attempting to fetch JSON from:', entryUrl);
         
         const indexRes = await fetch(entryUrl, {
           headers: {
@@ -364,15 +362,12 @@ const App: React.FC = () => {
           mode: 'cors',
         });
 
-        console.log('[Playlist] Fetch response status:', indexRes.status, 'ok:', indexRes.ok);
-
         if (!indexRes.ok) {
           throw new Error(`无法读取文件 (Status: ${indexRes.status})`);
         }
 
         // Check for HTML response (SPA fallback 404)
         const contentType = indexRes.headers.get('content-type');
-        console.log('[Playlist] Response content-type:', contentType);
         
         if (contentType && contentType.includes('text/html')) {
           throw new Error('资源地址返回了 HTML 页面而非 JSON，请检查 M3U8 文件是否已正确部署。');
@@ -380,7 +375,6 @@ const App: React.FC = () => {
 
         try {
           const jsonData = await indexRes.json();
-          console.log('[Playlist] Fetched JSON data:', jsonData);
           
           // Determine if it's a file list or channel list
           let isFileList = false;
@@ -389,12 +383,7 @@ const App: React.FC = () => {
             // Check if array contains strings (file list) or objects (channel list)
             if (jsonData.length > 0 && typeof jsonData[0] === 'string') {
               isFileList = true;
-              console.log('[Playlist] Detected as file list with', jsonData.length, 'files');
-            } else {
-              console.log('[Playlist] Detected as channel list with', jsonData.length, 'channels');
             }
-          } else {
-            console.log('[Playlist] Detected as object with channels/lives property');
           }
           
           if (isFileList) {
@@ -427,7 +416,7 @@ const App: React.FC = () => {
                   return { name: filename, content: await res.text() };
                 }
               } catch (e) {
-                console.error(`Failed to load ${filename}`, e);
+                // Failed to load file, skip
               }
               return null;
             });
@@ -478,24 +467,18 @@ const App: React.FC = () => {
         if (file.content) {
           const defaultGroupName = formatGroupName(file.name);
           const parsed = parseM3U(file.content, defaultGroupName);
-          console.log(`[Playlist] Parsed ${file.name}: ${parsed.length} channels`);
           allChannels = [...allChannels, ...parsed];
         }
       });
 
       const uniqueChannels = Array.from(new Map(allChannels.map(item => [item.id, item])).values());
-      console.log('[Playlist] Total unique channels:', uniqueChannels.length);
       setChannels(uniqueChannels);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('[Playlist] Error loading playlists:', error);
-      console.error('[Playlist] Error message:', errorMessage);
-      console.error('[Playlist] Error stack:', error instanceof Error ? error.stack : 'No stack');
       alert(`加载失败: ${errorMessage}`);
     } finally {
       setIsLoading(false);
       setLoadingStatus('');
-      console.log('[Playlist] Finished fetching');
     }
   }, []);
 
@@ -763,7 +746,6 @@ const App: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         playlistUrl={playlistUrl}
         onPlaylistUrlChange={(newUrl) => {
-          console.log('[Settings] Changing playlist URL to:', newUrl);
           setPlaylistUrl(newUrl);
           localStorage.setItem('iptv_url', newUrl);
           fetchPlaylists(newUrl);

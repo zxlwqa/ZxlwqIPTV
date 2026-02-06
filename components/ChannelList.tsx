@@ -102,10 +102,10 @@ const ChannelCard: React.FC<{
             e.stopPropagation();
             onEdit(channel);
           }}
-          className="p-1.5 rounded-full bg-black/60 backdrop-blur-md text-zinc-300 hover:text-white hover:bg-black/80 transition-all hover:scale-110 border border-white/10"
+          className="p-2.5 rounded-full bg-black/60 backdrop-blur-md text-zinc-300 hover:text-white hover:bg-black/80 transition-all hover:scale-110 border border-white/10"
           title="自定义封面"
         >
-          <Pencil size={12} />
+          <Pencil size={16} />
         </button>
 
         {/* Delete Button (Only for custom channels) */}
@@ -117,10 +117,10 @@ const ChannelCard: React.FC<{
                 onDelete(channel.id);
               }
             }}
-            className="p-1.5 rounded-full bg-black/60 backdrop-blur-md text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all hover:scale-110 border border-white/10"
+            className="p-2.5 rounded-full bg-black/60 backdrop-blur-md text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all hover:scale-110 border border-white/10"
             title="删除频道"
           >
-            <Trash2 size={12} />
+            <Trash2 size={16} />
           </button>
         )}
 
@@ -130,11 +130,11 @@ const ChannelCard: React.FC<{
             e.stopPropagation();
             onToggleFavorite(channel.id);
           }}
-          className={`p-1.5 rounded-full bg-black/60 backdrop-blur-md transition-all hover:scale-110 border border-white/10
+          className={`p-2.5 rounded-full bg-black/60 backdrop-blur-md transition-all hover:scale-110 border border-white/10
             ${isFavorite ? 'text-accent' : 'text-zinc-300 hover:text-white hover:bg-black/80'}`}
           title={isFavorite ? '取消收藏' : '添加收藏'}
         >
-          <Heart size={12} fill={isFavorite ? 'currentColor' : 'none'} />
+          <Heart size={16} fill={isFavorite ? 'currentColor' : 'none'} />
         </button>
       </div>
 
@@ -460,7 +460,7 @@ const ChannelList: React.FC<ChannelListProps> = ({
   return (
     <div className="flex h-full bg-surface">
       {/* Group Sidebar */}
-      <div className="w-16 md:w-56 flex-shrink-0 bg-background border-r border-white/5 flex flex-col transition-all duration-300">
+      <div className="w-16 md:w-72 flex-shrink-0 bg-background border-r border-white/5 flex flex-col transition-all duration-300">
         <div className="p-4 border-b border-white/5 text-white font-bold text-lg text-center hidden md:block">
           频道列表
         </div>
