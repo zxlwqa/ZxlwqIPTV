@@ -48,14 +48,26 @@ export const onRequestGet: PagesFunction = async context => {
     }
 
     // Fetch the target resource
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        Accept: '*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-    });
+    // 部分 CDN 校验来源：按域名补 Referer（surrit.com = MissAV），也可用 ?referer= 手动指定
+    const REFERERS: Record<string, string> = {
+      'surrit.com': 'https://missav.ws/',
+    };
+    const host = targetUrlObj.hostname;
+    const referer =
+      url.searchParams.get('referer') ||
+      Object.entries(REFERERS).find(([d]) => host === d || host.endsWith('.' + d))?.[1] ||
+      '';
+    const headers: Record<string, string> = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      Accept: '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+    if (referer) {
+      headers['Referer'] = referer;
+      headers['Origin'] = new URL(referer).origin;
+    }
+    const response = await fetch(targetUrl, { method: 'GET', headers });
 
     if (!response.ok) {
       return new Response(`Proxy error: ${response.status} ${response.statusText}`, {
@@ -85,6 +97,9 @@ export const onRequestGet: PagesFunction = async context => {
       const text = new TextDecoder().decode(body);
       const baseUrl = new URL(targetUrl);
       const proxyBase = `${url.origin}${url.pathname}`;
+      const refQs = url.searchParams.get('referer')
+        ? `&referer=${encodeURIComponent(url.searchParams.get('referer')!)}`
+        : '';
 
       // Rewrite URLs in the manifest
       const rewritten = text
@@ -101,19 +116,19 @@ export const onRequestGet: PagesFunction = async context => {
           // Handle absolute URLs
           if (trimmedLine.startsWith('http://') || trimmedLine.startsWith('https://')) {
             // Absolute URL - proxy it
-            return `${proxyBase}?url=${encodeURIComponent(trimmedLine)}`;
+            return `${proxyBase}?url=${encodeURIComponent(trimmedLine)}${refQs}`;
           }
           // Handle root-relative URLs
           else if (trimmedLine.startsWith('/')) {
             // Root-relative URL
-            return `${proxyBase}?url=${encodeURIComponent(baseUrl.origin + trimmedLine)}`;
+            return `${proxyBase}?url=${encodeURIComponent(baseUrl.origin + trimmedLine)}${refQs}`;
           }
           // Handle relative URLs (most common case for HLS segments)
           else if (!trimmedLine.startsWith('#') && trimmedLine.length > 0) {
             // Relative URL - resolve against base URL
             const dir = baseUrl.pathname.substring(0, baseUrl.pathname.lastIndexOf('/') + 1);
             const resolvedUrl = new URL(trimmedLine, baseUrl.origin + dir).href;
-            return `${proxyBase}?url=${encodeURIComponent(resolvedUrl)}`;
+            return `${proxyBase}?url=${encodeURIComponent(resolvedUrl)}${refQs}`;
           }
 
           // Return original line if no URL pattern matched
